@@ -1,5 +1,3 @@
-#!/bin/python
-
 import os
 import re
 import sys
@@ -10,10 +8,15 @@ import platform
 #global variables
 eolchar = "\r\n"
 fname = "catalog.txt"
-cat_inout = ["Indoors", "Outdoors"]
-cat_loc = ["Home", "City", "Country"]
-cat_cost = ["Free", "$", "$$", "$$$"]
-cat_dist = ["< 30 mins", "30 mins - 1 hr", "1 hr - 2 hr", "> 2 hr"]
+cat_inout = ["indoor", "outdoor", "either"]
+cat_loc = ["home", "city", "country", "any"]
+cat_dist = ["lessthan30m", "30m-1hr", "1hr-2hr", "morethan2hr", "doesn't matter" ]
+cat_cost = ["free", "$", "$$", "$$$", "ain't nothing but a dime"]
+globInd_dateIdea = []
+globInd_inout = []
+globInd_loc = []
+globInd_dist = []
+globInd_cost = []
 
 def printDebugMsg(msg):
     print "**********DEBUG**********"
@@ -21,7 +24,7 @@ def printDebugMsg(msg):
     print "**********DEBUG**********"
 
 def usage(exit):
-    print "generateDate <get-date|set-date|show-date> [indoor|outdoor] [home|city|country] [$|$$|$$$]"
+    print "generateDate <--get-date|--set-date <\"date\">|--show-date> [indoor|outdoor] [home|city|country] [lessthan30|30-1hr|1hr-2hr|morethan2hr] [free|$|$$|$$$]"
     if exit:
         sys.exit()
 
@@ -42,16 +45,64 @@ def getMultipleChoiceUserInput(msg, optionArray):
         else:
             return int(userInput)-1
 
-def createDateEntry():
-    # get date idea and categorical info from user
-    dateIdea = raw_input("Please enter your date idea: ")
-    print "Now we need to categorize this date"
-    inout = getMultipleChoiceUserInput("Would this date occur:", cat_inout)
-    location = getMultipleChoiceUserInput("More specifically, where would this date take place?", cat_loc)
-    dist = getMultipleChoiceUserInput("How far away is this date location?", cat_dist)
-    cost = getMultipleChoiceUserInput("How expensive would this date be?", cat_cost) 
+def getDateParamsFromArray(argArray):
+    #declare global variables
+    global globInd_dateIdea
+    global globInd_inout
+    global globInd_loc
+    global globInd_dist
+    global globInd_cost
 
-    entry = "@{"+dateIdea+"}:"+cat_inout[int(inout)]+":"+cat_loc[int(location)]+":"+cat_dist[int(dist)]+":"+cat_cost[int(cost)]
+    print "getting params from cmd line"
+
+    for arg in argArray: 
+        print arg
+        if argArray.index(arg) is 2: 
+            globInd_dateIdea = arg
+        elif arg in cat_inout:
+            globInd_inout = cat_inout.index(arg)
+        elif arg in cat_loc:
+            globInd_loc = cat_loc.index(arg)
+        elif arg in cat_dist:
+            globInd_dist = cat_dist.index(arg)
+        elif arg in cat_cost:
+            globInd_cost = cat_cost.index(arg)
+
+    print globInd_dateIdea
+    print globInd_inout
+    print globInd_loc
+    print globInd_dist
+    print globInd_cost
+
+    #if any params are empty, have to go to prompt mode
+    if not globInd_dateIdea or not globInd_inout or not globInd_loc or not globInd_dist or not globInd_cost:
+        return True
+    else:
+        return False 
+
+def getDateParamsFromUser(setDate):
+    #declare global variables
+    global globInd_dateIdea
+    global globInd_inout
+    global globInd_loc
+    global globInd_dist
+    global globInd_cost
+
+
+    # get date idea and categorical info from user
+    if setDate and not globInd_dateIdea:
+        globInd_dateIdea = raw_input("Please enter your date idea: ")
+    if not globInd_inout:
+        globInd_inout = getMultipleChoiceUserInput("Will this date occur:", cat_inout)
+    if not globInd_loc:
+        globInd_loc = getMultipleChoiceUserInput("Where would you like this date to take place?", cat_loc)
+    if not globInd_dist:
+        globInd_dist = getMultipleChoiceUserInput("How far away will you drive to this date location?", cat_dist)
+    if not globInd_cost:
+        globInd_cost = getMultipleChoiceUserInput("How expensive will this date be?", cat_cost) 
+
+def writeDateEntry():
+    entry = "@{"+globInd_dateIdea+"}:"+cat_inout[int(globInd_inout)]+":"+cat_loc[int(globInd_loc)]+":"+cat_dist[int(globInd_dist)]+":"+cat_cost[int(globInd_cost)]
     print entry
 
     #write new date entry to catalog
@@ -71,15 +122,47 @@ def createDateEntry():
 if platform.system() in "Linux":
     eolchar = "\n"
 
-if len(sys.argv) == 1:
-    usage(False)
-    prompt_mode = True
-elif sys.argv[1] in ("-h", "--help"): 
+if sys.argv[1] in ("-h", "--help"): 
     usage(True)
 
-mode = getMultipleChoiceUserInput("What would you like to do?", ("Fetch a date idea from the catalog", "Add a new date idea to the catalog"))
-
-if mode == 0: 
+elif "--get-date" in sys.argv:
+    missingInputs = getDateParamsFromArray(sys.argv)
+    if missingInputs:
+        print "You forgot some parameters.  Please enter them in the following prompts"
+        getDateParamsFromUser(False)
     getDateEntry()
-elif mode == 1: 
-    createDateEntry()
+    exit()
+
+elif ("--set-date" in sys.argv):
+    missingInputs = getDateParamsFromArray(sys.argv)
+    if missingInputs:
+        print "You forgot some parameters.  Please enter them in the following prompts"
+        getDateParamsFromUser(True)
+    writeDateEntry()
+    exit()
+
+elif "--show-dates" in sys.argv:
+    # parse file and list in human readable format
+    # don't need all params, just list what was specified
+    getDateParamsFromArray(sys.argv)
+
+while True:
+    mode = getMultipleChoiceUserInput("What would you like to do?", ("Fetch a date idea from the catalog", "Add a new date idea to the catalog", "Show possible dates", "Exit"))
+    if mode == 0: 
+        getDateEntry()
+    elif mode == 1: 
+        getDateParamsFromUser(True)
+        writeDateEntry()
+    elif mode == 2:
+        listDates()
+    elif mode == 3:
+        exit()
+
+    #clear data params just to be safe
+    globInd_dateIdea = []
+    globInd_inout = []
+    globInd_loc = []
+    globInd_dist = []
+    globInd_cost = []
+
+
